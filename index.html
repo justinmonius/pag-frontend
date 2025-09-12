@@ -6,7 +6,8 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 2em; }
     input { margin: 0.5em 0; }
-    button { padding: 0.5em 1em; margin-top: 1em; }
+    button { padding: 0.5em 1em; margin-top: 1em; cursor: pointer; }
+    #status { margin-top: 1em; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -40,7 +41,7 @@
       formData.append("ship_file", shipFile);
 
       try {
-        const res = await fetch("http://localhost:8000/process", {
+        const res = await fetch("https://pag-api.onrender.com/process", {
           method: "POST",
           body: formData
         });
