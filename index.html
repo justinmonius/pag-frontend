@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PAG Processor</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    input { margin: 0.5em 0; }
+    button { padding: 0.5em 1em; margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <h1>PAG Integration Processor</h1>
+
+  <form id="uploadForm">
+    <label>PAG Integration File:</label><br>
+    <input type="file" id="pagFile" accept=".xlsx,.xls" required><br><br>
+
+    <label>Shipment vs Receipt File:</label><br>
+    <input type="file" id="shipFile" accept=".xlsx,.xls" required><br><br>
+
+    <button type="submit">Process Files</button>
+  </form>
+
+  <p id="status"></p>
+
+  <script>
+    const form = document.getElementById("uploadForm");
+    const statusEl = document.getElementById("status");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      statusEl.textContent = "Processing...";
+
+      const pagFile = document.getElementById("pagFile").files[0];
+      const shipFile = document.getElementById("shipFile").files[0];
+
+      const formData = new FormData();
+      formData.append("pag_file", pagFile);
+      formData.append("ship_file", shipFile);
+
+      try {
+        const res = await fetch("http://localhost:8000/process", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("Processing failed");
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "updated_pag.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        statusEl.textContent = "✅ File processed and downloaded!";
+      } catch (err) {
+        statusEl.textContent = "❌ Error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
