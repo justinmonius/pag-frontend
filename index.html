@@ -4,26 +4,105 @@
   <meta charset="UTF-8">
   <title>PAG Processor</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2em; }
-    input { margin: 0.5em 0; }
-    button { padding: 0.5em 1em; margin-top: 1em; cursor: pointer; }
-    #status { margin-top: 1em; font-weight: bold; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8fafc;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: #ffffff;
+      margin-top: 60px;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      max-width: 450px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+      color: #1e293b;
+    }
+
+    label {
+      font-weight: 500;
+      display: block;
+      margin: 20px 0 10px;
+      text-align: left;
+      color: #334155;
+    }
+
+    input[type="file"] {
+      display: block;
+      width: 100%;
+      border: 2px dashed #94a3b8;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      background: #f1f5f9;
+      transition: border-color 0.2s ease;
+    }
+
+    input[type="file"]:hover {
+      border-color: #2563eb;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 25px;
+      width: 100%;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-weight: 500;
+      color: #475569;
+    }
+
+    .success {
+      color: #16a34a;
+    }
+
+    .error {
+      color: #dc2626;
+    }
   </style>
 </head>
 <body>
-  <h1>PAG Integration Processor</h1>
+  <div class="container">
+    <h1>PAG Integration Processor</h1>
 
-  <form id="uploadForm">
-    <label>PAG Integration File:</label><br>
-    <input type="file" id="pagFile" accept=".xlsx,.xls" required><br><br>
+    <form id="uploadForm">
+      <label>PAG Integration File:</label>
+      <input type="file" id="pagFile" accept=".xlsx,.xls" required>
 
-    <label>Shipment vs Receipt File:</label><br>
-    <input type="file" id="shipFile" accept=".xlsx,.xls" required><br><br>
+      <label>Shipment vs Receipt File:</label>
+      <input type="file" id="shipFile" accept=".xlsx,.xls" required>
 
-    <button type="submit">Process Files</button>
-  </form>
+      <button type="submit">⚡ Process Files</button>
+    </form>
 
-  <p id="status"></p>
+    <p id="status"></p>
+  </div>
 
   <script>
     const form = document.getElementById("uploadForm");
@@ -32,6 +111,7 @@
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       statusEl.textContent = "Processing...";
+      statusEl.className = "";
 
       const pagFile = document.getElementById("pagFile").files[0];
       const shipFile = document.getElementById("shipFile").files[0];
@@ -58,8 +138,10 @@
         a.remove();
 
         statusEl.textContent = "✅ File processed and downloaded!";
+        statusEl.className = "success";
       } catch (err) {
         statusEl.textContent = "❌ Error: " + err.message;
+        statusEl.className = "error";
       }
     });
   </script>
