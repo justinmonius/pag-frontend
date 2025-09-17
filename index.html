@@ -98,6 +98,10 @@
       <label>Shipment vs Receipt File:</label>
       <input type="file" id="shipFile" accept=".xlsx,.xls" required>
 
+      <!-- NEW FILE INPUT -->
+      <label>Sub-Inv Transfers File:</label>
+      <input type="file" id="subinvFile" accept=".xlsx,.xls" required>
+
       <button type="submit">⚡ Process Files</button>
     </form>
 
@@ -115,10 +119,12 @@
 
       const pagFile = document.getElementById("pagFile").files[0];
       const shipFile = document.getElementById("shipFile").files[0];
+      const subinvFile = document.getElementById("subinvFile").files[0]; // NEW
 
       const formData = new FormData();
       formData.append("pag_file", pagFile);
       formData.append("ship_file", shipFile);
+      formData.append("subinv_file", subinvFile); // NEW
 
       try {
         const res = await fetch("https://pag-api.onrender.com/process", {
