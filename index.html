@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PAG Processor</title>
+  <title>PAG Processor (Two-Step)</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -21,7 +21,7 @@
       padding: 40px;
       border-radius: 12px;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-      max-width: 450px;
+      max-width: 480px;
       width: 100%;
       text-align: center;
     }
@@ -72,7 +72,7 @@
       background: #1d4ed8;
     }
 
-    #status {
+    #status, #deltaStatus {
       margin-top: 20px;
       font-weight: 500;
       color: #475569;
@@ -90,12 +90,20 @@
       color: #64748b;
       font-size: 0.85rem;
     }
+
+    #deltaSection {
+      display: none;
+      margin-top: 30px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 30px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>PAG Integration Processor</h1>
 
+    <!-- Step 1 -->
     <form id="uploadForm">
       <label>PAG Integration File:</label>
       <input type="file" id="pagFile" accept=".xlsx,.xls" required>
@@ -106,37 +114,46 @@
       <label>EBU Ship File:</label>
       <input type="file" id="ebuFile" accept=".xlsx,.xls" required>
 
-      <!-- NEW OPTIONAL INPUT -->
-      <label>Old PAG File (optional): <span class="optional">(for Delta Report)</span></label>
-      <input type="file" id="oldPagFile" accept=".xlsx,.xls">
-
-      <button type="submit">⚡ Process Files</button>
+      <button type="submit">⚡ Generate Updated PAG</button>
     </form>
 
     <p id="status"></p>
+
+    <!-- Step 2 -->
+    <div id="deltaSection">
+      <h2>Delta Report</h2>
+      <form id="deltaForm">
+        <label>Old PAG File (for Delta Comparison):</label>
+        <input type="file" id="oldPagFile" accept=".xlsx,.xls" required>
+        <button type="submit">📊 Generate Delta Report</button>
+      </form>
+      <p id="deltaStatus"></p>
+    </div>
   </div>
 
   <script>
-    const form = document.getElementById("uploadForm");
+    const uploadForm = document.getElementById("uploadForm");
+    const deltaForm = document.getElementById("deltaForm");
     const statusEl = document.getElementById("status");
+    const deltaStatusEl = document.getElementById("deltaStatus");
+    const deltaSection = document.getElementById("deltaSection");
 
-    form.addEventListener("submit", async (e) => {
+    let updatedPagFileBlob = null; // to store updated_pag.xlsx for delta step
+
+    // STEP 1: Generate updated PAG
+    uploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      statusEl.textContent = "Processing...";
+      statusEl.textContent = "Processing files...";
       statusEl.className = "";
 
       const pagFile = document.getElementById("pagFile").files[0];
       const shipFile = document.getElementById("shipFile").files[0];
       const ebuFile = document.getElementById("ebuFile").files[0];
-      const oldPagFile = document.getElementById("oldPagFile").files[0]; // optional
 
       const formData = new FormData();
       formData.append("pag_file", pagFile);
       formData.append("ship_file", shipFile);
       formData.append("ebu_file", ebuFile);
-      if (oldPagFile) {
-        formData.append("old_pag_file", oldPagFile);
-      }
 
       try {
         const res = await fetch("https://pag-api.onrender.com/process", {
@@ -145,39 +162,79 @@
         });
 
         if (!res.ok) throw new Error("Processing failed");
+        const blob = await res.blob();
+        updatedPagFileBlob = blob; // store for delta step
 
+        // Download the updated PAG
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "updated_pag.xlsx";
+        a.click();
+        a.remove();
+
+        statusEl.textContent = "✅ Updated PAG generated and downloaded!";
+        statusEl.className = "success";
+
+        // Show delta section
+        deltaSection.style.display = "block";
+
+      } catch (err) {
+        statusEl.textContent = "❌ Error: " + err.message;
+        statusEl.className = "error";
+      }
+    });
+
+    // STEP 2: Generate Delta Report
+    deltaForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      deltaStatusEl.textContent = "Calculating delta...";
+      deltaStatusEl.className = "";
+
+      const oldPagFile = document.getElementById("oldPagFile").files[0];
+      if (!updatedPagFileBlob) {
+        deltaStatusEl.textContent = "❌ Please generate the Updated PAG first.";
+        deltaStatusEl.className = "error";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("pag_file", updatedPagFileBlob, "updated_pag.xlsx"); // use the new output as "pag_file"
+      formData.append("ship_file", new Blob([])); // dummy required params
+      formData.append("ebu_file", new Blob([]));
+      formData.append("old_pag_file", oldPagFile);
+
+      try {
+        const res = await fetch("https://pag-api.onrender.com/process", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("Delta report generation failed");
         const blob = await res.blob();
 
-        // Extract filename from headers
         const contentDisposition = res.headers.get("Content-Disposition");
-        let filename = "output.xlsx";
+        let filename = "delta_report.xlsx";
         if (contentDisposition) {
           const match = contentDisposition.match(/filename="?([^"]+)"?/);
           if (match && match[1]) filename = match[1];
         }
 
-        // Trigger download
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = filename;
-        document.body.appendChild(a);
         a.click();
         a.remove();
 
         window.URL.revokeObjectURL(url);
 
-        // Update status
-        if (filename.endsWith(".zip")) {
-          statusEl.textContent = "✅ Files processed and ZIP downloaded (includes Updated PAG + Delta Report)!";
-        } else {
-          statusEl.textContent = "✅ File processed and Updated PAG downloaded!";
-        }
-        statusEl.className = "success";
+        deltaStatusEl.textContent = "✅ Delta report generated and downloaded!";
+        deltaStatusEl.className = "success";
 
       } catch (err) {
-        statusEl.textContent = "❌ Error: " + err.message;
-        statusEl.className = "error";
+        deltaStatusEl.textContent = "❌ Error: " + err.message;
+        deltaStatusEl.className = "error";
       }
     });
   </script>
