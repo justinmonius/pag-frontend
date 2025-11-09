@@ -88,20 +88,26 @@
 
     let updatedPagBlob = null;
 
-    // Step 1
+    // -----------------------------
+    // STEP 1: Generate Updated PAG
+    // -----------------------------
     uploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       statusEl.textContent = "Processing...";
+      statusEl.className = "";
+
       const formData = new FormData();
       formData.append("pag_file", pagFile.files[0]);
       formData.append("ship_file", shipFile.files[0]);
       formData.append("ebu_file", ebuFile.files[0]);
+
       try {
         const res = await fetch("https://pag-api.onrender.com/process", { method: "POST", body: formData });
         if (!res.ok) throw new Error("Failed to process files");
         const blob = await res.blob();
-        updatedPagBlob = blob;
+        updatedPagBlob = blob; // store Updated PAG (contains Price_Lookup)
 
+        // Download Updated PAG immediately
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -118,28 +124,37 @@
       }
     });
 
-    // Step 2
+    // -----------------------------
+    // STEP 2: Generate Delta Report (uses Price_Lookup from Updated PAG)
+    // -----------------------------
     deltaForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       deltaStatusEl.textContent = "Generating delta report...";
+      deltaStatusEl.className = "";
+
       if (!updatedPagBlob) {
         deltaStatusEl.textContent = "❌ Please complete Step 1 first.";
+        deltaStatusEl.className = "error";
         return;
       }
+
       const formData = new FormData();
-      formData.append("new_file", updatedPagBlob, "updated_pag.xlsx");
+      formData.append("new_file", updatedPagBlob, "updated_pag.xlsx"); // contains Price_Lookup
       formData.append("old_file", oldPagFile.files[0]);
+
       try {
         const res = await fetch("https://pag-api.onrender.com/delta", { method: "POST", body: formData });
         if (!res.ok) throw new Error("Failed to generate delta report");
         const blob = await res.blob();
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = "delta_report.xlsx";
         a.click();
         URL.revokeObjectURL(url);
-        deltaStatusEl.textContent = "✅ Delta report generated!";
+
+        deltaStatusEl.textContent = "✅ Delta report (with Revenue) generated!";
         deltaStatusEl.className = "success";
       } catch (err) {
         deltaStatusEl.textContent = "❌ " + err.message;
