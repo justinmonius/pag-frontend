@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>PAG Processor</title>
   <style>
     body {
@@ -25,14 +25,16 @@
       text-align: center;
     }
     h1 { font-size: 1.8rem; margin-bottom: 1rem; color: #1e293b; }
+    h2 { font-size: 1.3rem; margin: 0 0 1rem; color: #1e293b; }
     label { font-weight: 500; display: block; margin: 20px 0 10px; text-align: left; color: #334155; }
-    input[type="file"] {
+    input[type="file"], input[type="date"] {
       display: block; width: 100%;
       border: 2px dashed #94a3b8;
       border-radius: 8px;
       padding: 10px;
       cursor: pointer;
       background: #f1f5f9;
+      box-sizing: border-box;
     }
     button {
       background: #2563eb; color: white; border: none;
@@ -73,6 +75,15 @@
       <form id="deltaForm">
         <label>Old PAG File:</label>
         <input type="file" id="oldPagFile" accept=".xlsx,.xls" required>
+
+        <!-- ✅ NEW: Re-upload EBU for Step 2 -->
+        <label>EBU Ship File (for cutoff downcount):</label>
+        <input type="file" id="ebuFile2" accept=".xlsx,.xls" required>
+
+        <!-- ✅ NEW: Cutoff date -->
+        <label>Cutoff Date:</label>
+        <input type="date" id="cutoffDate" required>
+
         <button type="submit">📊 Generate Delta</button>
       </form>
       <p id="deltaStatus"></p>
@@ -125,7 +136,9 @@
     });
 
     // -----------------------------
-    // STEP 2: Generate Delta Report (uses Price_Lookup from Updated PAG)
+    // STEP 2: Generate Delta Report
+    // - still uses Price_Lookup from Updated PAG (new_file)
+    // - ✅ additionally downcounts OLD using EBU rows AFTER cutoff_date
     // -----------------------------
     deltaForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -141,6 +154,10 @@
       const formData = new FormData();
       formData.append("new_file", updatedPagBlob, "updated_pag.xlsx"); // contains Price_Lookup
       formData.append("old_file", oldPagFile.files[0]);
+
+      // ✅ NEW
+      formData.append("ebu_file", ebuFile2.files[0]);
+      formData.append("cutoff_date", cutoffDate.value); // YYYY-MM-DD from <input type="date">
 
       try {
         const res = await fetch("https://pag-api.onrender.com/delta", { method: "POST", body: formData });
