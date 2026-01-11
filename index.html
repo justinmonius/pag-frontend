@@ -64,6 +64,10 @@
       <label>EBU Ship File:</label>
       <input type="file" id="ebuFile" accept=".xlsx,.xls" required>
 
+      <!-- ✅ NEW: Cutoff date used ONLY for (Part, PO) not found in shipment/receipt file -->
+      <label>EBU Cutoff Date (only for parts NOT in Shipment vs Receipt file):</label>
+      <input type="date" id="processCutoffDate" required>
+
       <button type="submit">⚡ Generate Updated PAG</button>
     </form>
 
@@ -76,11 +80,9 @@
         <label>Old PAG File:</label>
         <input type="file" id="oldPagFile" accept=".xlsx,.xls" required>
 
-        <!-- ✅ NEW: Re-upload EBU for Step 2 -->
         <label>EBU Ship File (for cutoff downcount):</label>
         <input type="file" id="ebuFile2" accept=".xlsx,.xls" required>
 
-        <!-- ✅ NEW: Cutoff date -->
         <label>Cutoff Date:</label>
         <input type="date" id="cutoffDate" required>
 
@@ -112,13 +114,15 @@
       formData.append("ship_file", shipFile.files[0]);
       formData.append("ebu_file", ebuFile.files[0]);
 
+      // ✅ NEW: send cutoff date for missing-ship EBU downcount
+      formData.append("cutoff_date", processCutoffDate.value);
+
       try {
         const res = await fetch("https://pag-api.onrender.com/process", { method: "POST", body: formData });
         if (!res.ok) throw new Error("Failed to process files");
         const blob = await res.blob();
-        updatedPagBlob = blob; // store Updated PAG (contains Price_Lookup)
+        updatedPagBlob = blob;
 
-        // Download Updated PAG immediately
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -137,8 +141,6 @@
 
     // -----------------------------
     // STEP 2: Generate Delta Report
-    // - still uses Price_Lookup from Updated PAG (new_file)
-    // - ✅ additionally downcounts OLD using EBU rows AFTER cutoff_date
     // -----------------------------
     deltaForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -152,12 +154,10 @@
       }
 
       const formData = new FormData();
-      formData.append("new_file", updatedPagBlob, "updated_pag.xlsx"); // contains Price_Lookup
+      formData.append("new_file", updatedPagBlob, "updated_pag.xlsx");
       formData.append("old_file", oldPagFile.files[0]);
-
-      // ✅ NEW
       formData.append("ebu_file", ebuFile2.files[0]);
-      formData.append("cutoff_date", cutoffDate.value); // YYYY-MM-DD from <input type="date">
+      formData.append("cutoff_date", cutoffDate.value);
 
       try {
         const res = await fetch("https://pag-api.onrender.com/delta", { method: "POST", body: formData });
