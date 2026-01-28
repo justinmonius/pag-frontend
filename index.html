@@ -25,7 +25,6 @@
       text-align: center;
     }
     h1 { font-size: 1.8rem; margin-bottom: 1rem; color: #1e293b; }
-    h2 { font-size: 1.3rem; margin: 0 0 1rem; color: #1e293b; }
     label { font-weight: 500; display: block; margin: 20px 0 10px; text-align: left; color: #334155; }
     input[type="file"], input[type="date"] {
       display: block; width: 100%;
@@ -43,18 +42,17 @@
       margin-top: 25px; width: 100%;
     }
     button:hover { background: #1d4ed8; }
-    #status, #deltaStatus { margin-top: 20px; font-weight: 500; }
+    #status { margin-top: 20px; font-weight: 500; }
     .success { color: #16a34a; }
     .error { color: #dc2626; }
-    #deltaSection { display: none; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 30px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>PAG Integration Processor</h1>
 
-    <!-- STEP 1 -->
-    <form id="uploadForm">
+    <!-- ONE STEP -->
+    <form id="runAllForm">
       <label>PAG Integration File:</label>
       <input type="file" id="pagFile" accept=".xlsx,.xls" required>
 
@@ -64,47 +62,26 @@
       <label>EBU Ship File:</label>
       <input type="file" id="ebuFile" accept=".xlsx,.xls" required>
 
-      <!-- ✅ NEW: Cutoff date used ONLY for (Part, PO) not found in shipment/receipt file -->
-      <label>EBU Cutoff Date (only for parts NOT in Shipment vs Receipt file):</label>
+      <label>Old PAG File (baseline for Delta):</label>
+      <input type="file" id="oldPagFile" accept=".xlsx,.xls" required>
+
+      <label>Step 1 Cutoff Date (only for parts NOT in Shipment vs Receipt file):</label>
       <input type="date" id="processCutoffDate" required>
 
-      <button type="submit">⚡ Generate Updated PAG</button>
+      <label>Step 2 Cutoff Date (downcount OLD PAG using EBU after this date):</label>
+      <input type="date" id="deltaCutoffDate" required>
+
+      <button type="submit">⚡ Generate Full Output</button>
     </form>
 
     <p id="status"></p>
-
-    <!-- STEP 2 -->
-    <div id="deltaSection">
-      <h2>Generate Delta Report</h2>
-      <form id="deltaForm">
-        <label>Old PAG File:</label>
-        <input type="file" id="oldPagFile" accept=".xlsx,.xls" required>
-
-        <label>EBU Ship File (for cutoff downcount):</label>
-        <input type="file" id="ebuFile2" accept=".xlsx,.xls" required>
-
-        <label>Cutoff Date:</label>
-        <input type="date" id="cutoffDate" required>
-
-        <button type="submit">📊 Generate Delta</button>
-      </form>
-      <p id="deltaStatus"></p>
-    </div>
   </div>
 
   <script>
-    const uploadForm = document.getElementById("uploadForm");
-    const deltaForm = document.getElementById("deltaForm");
+    const runAllForm = document.getElementById("runAllForm");
     const statusEl = document.getElementById("status");
-    const deltaStatusEl = document.getElementById("deltaStatus");
-    const deltaSection = document.getElementById("deltaSection");
 
-    let updatedPagBlob = null;
-
-    // -----------------------------
-    // STEP 1: Generate Updated PAG
-    // -----------------------------
-    uploadForm.addEventListener("submit", async (e) => {
+    runAllForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       statusEl.textContent = "Processing...";
       statusEl.className = "";
@@ -113,69 +90,30 @@
       formData.append("pag_file", pagFile.files[0]);
       formData.append("ship_file", shipFile.files[0]);
       formData.append("ebu_file", ebuFile.files[0]);
-
-      // ✅ NEW: send cutoff date for missing-ship EBU downcount
-      formData.append("cutoff_date", processCutoffDate.value);
+      formData.append("old_pag_file", oldPagFile.files[0]);
+      formData.append("process_cutoff_date", processCutoffDate.value);
+      formData.append("delta_cutoff_date", deltaCutoffDate.value);
 
       try {
-        const res = await fetch("https://pag-api.onrender.com/process", { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Failed to process files");
+        const res = await fetch("https://pag-api.onrender.com/run-all", {
+          method: "POST",
+          body: formData
+        });
+        if (!res.ok) throw new Error("Failed to generate output");
         const blob = await res.blob();
-        updatedPagBlob = blob;
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "updated_pag.xlsx";
+        a.download = "pag_full_output.xlsx";
         a.click();
         URL.revokeObjectURL(url);
 
-        statusEl.textContent = "✅ Updated PAG generated and downloaded!";
+        statusEl.textContent = "✅ Full output generated and downloaded!";
         statusEl.className = "success";
-        deltaSection.style.display = "block";
       } catch (err) {
         statusEl.textContent = "❌ " + err.message;
         statusEl.className = "error";
-      }
-    });
-
-    // -----------------------------
-    // STEP 2: Generate Delta Report
-    // -----------------------------
-    deltaForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      deltaStatusEl.textContent = "Generating delta report...";
-      deltaStatusEl.className = "";
-
-      if (!updatedPagBlob) {
-        deltaStatusEl.textContent = "❌ Please complete Step 1 first.";
-        deltaStatusEl.className = "error";
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("new_file", updatedPagBlob, "updated_pag.xlsx");
-      formData.append("old_file", oldPagFile.files[0]);
-      formData.append("ebu_file", ebuFile2.files[0]);
-      formData.append("cutoff_date", cutoffDate.value);
-
-      try {
-        const res = await fetch("https://pag-api.onrender.com/delta", { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Failed to generate delta report");
-        const blob = await res.blob();
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "delta_report.xlsx";
-        a.click();
-        URL.revokeObjectURL(url);
-
-        deltaStatusEl.textContent = "✅ Delta report (with Revenue) generated!";
-        deltaStatusEl.className = "success";
-      } catch (err) {
-        deltaStatusEl.textContent = "❌ " + err.message;
-        deltaStatusEl.className = "error";
       }
     });
   </script>
